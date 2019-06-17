@@ -26,35 +26,46 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os/exec"
+	"strconv"
 
 	"github.com/mback2k/node_exporter_hostname/compress"
 	"github.com/mback2k/node_exporter_hostname/hostmetrics"
 )
 
-var (
-	listenAddress = flag.String("listen-address", ":8080", "The address to listen on for HTTP requests.")
-	launchProgram = flag.String("launch-program", "/bin/node_exporter", "The command to run to retrieve and serve metrics.")
-	scrapeMetrics = flag.String("scrape-metrics", "http://localhost:9100/", "The URL to proxy to retrieve and serve metrics.")
+const (
+	defaultListenAddress = ":8080"
+	defaultScrapeMetrics = "http://localhost:9100/"
+	defaultLaunchProgram = "/bin/node_exporter"
 )
 
-func prom() {
-	cmd := exec.Command(*launchProgram, flag.Args()...)
-	log.Fatal(cmd.Run())
-}
+var (
+	listenAddress = flag.String("listen-address", defaultListenAddress, "The address to listen on for HTTP requests.")
+	scrapeMetrics = flag.String("scrape-metrics", defaultScrapeMetrics, "The URL to proxy to retrieve and serve metrics.")
+	launchProgram = flag.String("launch-program", defaultLaunchProgram, "The command to run to retrieve and serve metrics.")
+)
 
 func main() {
 	flag.Parse()
-	if *launchProgram != "" {
-		go prom()
+	ok, err := strconv.ParseBool(*launchProgram)
+	if err == nil && ok {
+		go launchMetrics(defaultLaunchProgram)
+	} else if err != nil && *launchProgram != "" {
+		go launchMetrics(*launchProgram)
 	}
+
 	url, _ := url.ParseRequestURI(*scrapeMetrics)
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	proxy.ModifyResponse = modifyResponse
+	proxy.ModifyResponse = modifyMetrics
 	http.Handle("/", proxy)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
 
-func modifyResponse(r *http.Response) error {
+func launchMetrics(p string) {
+	cmd := exec.Command(p, flag.Args()...)
+	log.Fatal(cmd.Run())
+}
+
+func modifyMetrics(r *http.Response) error {
 	body := r.Body
 	encoding := r.Header.Get("Content-Encoding")
 	switch encoding {
