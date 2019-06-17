@@ -20,29 +20,38 @@ package main
 
 import (
 	"compress/gzip"
+	"flag"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"os/exec"
 
 	"github.com/mback2k/node_exporter_hostname/compress"
 	"github.com/mback2k/node_exporter_hostname/hostmetrics"
 )
 
+var (
+	listenAddress = flag.String("listen-address", ":8080", "The address to listen on for HTTP requests.")
+	launchProgram = flag.String("launch-program", "/bin/node_exporter", "The command to run to retrieve and serve metrics.")
+	scrapeMetrics = flag.String("scrape-metrics", "http://localhost:9100/", "The URL to proxy to retrieve and serve metrics.")
+)
+
 func prom() {
-	cmd := exec.Command("/bin/node_exporter", os.Args[1:]...)
+	cmd := exec.Command(*launchProgram, flag.Args()...)
 	log.Fatal(cmd.Run())
 }
 
 func main() {
-	go prom()
-	url, _ := url.ParseRequestURI("http://localhost:9100/")
+	flag.Parse()
+	if *launchProgram != "" {
+		go prom()
+	}
+	url, _ := url.ParseRequestURI(*scrapeMetrics)
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	proxy.ModifyResponse = modifyResponse
 	http.Handle("/", proxy)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
 
 func modifyResponse(r *http.Response) error {
