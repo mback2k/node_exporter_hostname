@@ -42,6 +42,7 @@ var (
 	listenAddress = flag.String("listen-address", defaultListenAddress, "The address to listen on for HTTP requests.")
 	scrapeMetrics = flag.String("scrape-metrics", defaultScrapeMetrics, "The URL to proxy to retrieve and serve metrics.")
 	launchProgram = flag.String("launch-program", defaultLaunchProgram, "The command to run to retrieve and serve metrics.")
+	updateMetrics = flag.Bool("modify-metrics", true, "Enable or disable modification of the scraped metrics.")
 )
 
 func main() {
@@ -55,7 +56,9 @@ func main() {
 
 	url, _ := url.ParseRequestURI(*scrapeMetrics)
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	proxy.ModifyResponse = modifyMetrics
+	if *updateMetrics {
+		proxy.ModifyResponse = modifyMetrics
+	}
 	http.Handle("/", proxy)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
