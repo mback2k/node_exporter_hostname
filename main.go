@@ -85,6 +85,7 @@ func modifyMetrics(r *http.Response) error {
 		body = compress.NewGzipCompressor(body)
 	}
 	r.Header.Del("Content-Length")
+	r.ContentLength = -1
 	r.Body = body
 	return nil
 }
