@@ -33,6 +33,12 @@ import (
 )
 
 const (
+	headerContentEncoding  = "Content-Encoding"
+	headerContentLength    = "Content-Length"
+	headerTransferEncoding = "Transfer-Encoding"
+)
+
+const (
 	defaultListenAddress = ":8080"
 	defaultScrapeMetrics = "http://localhost:9100/"
 	defaultLaunchProgram = "/bin/node_exporter"
@@ -70,7 +76,7 @@ func launchMetrics(p string) {
 
 func modifyMetrics(r *http.Response) error {
 	body := r.Body
-	encoding := r.Header.Get("Content-Encoding")
+	encoding := r.Header.Get(headerContentEncoding)
 	switch encoding {
 	case "gzip":
 		gr, err := gzip.NewReader(body)
@@ -84,7 +90,9 @@ func modifyMetrics(r *http.Response) error {
 	case "gzip":
 		body = compress.NewGzipCompressor(body)
 	}
-	r.Header.Del("Content-Length")
+	r.Header.Del(headerTransferEncoding)
+	r.Header.Del(headerContentLength)
+	r.TransferEncoding = nil
 	r.ContentLength = -1
 	r.Body = body
 	return nil
