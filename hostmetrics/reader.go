@@ -28,8 +28,8 @@ import (
 type HostMetricsReader struct {
 	Source io.ReadCloser
 
-	reader io.ReadCloser
-	writer io.WriteCloser
+	reader *io.PipeReader
+	writer *io.PipeWriter
 
 	scanner *bufio.Scanner
 	printer *bufio.Writer
@@ -42,11 +42,16 @@ func NewHostMetricsReader(r io.ReadCloser) *HostMetricsReader {
 }
 
 func (r *HostMetricsReader) Read(p []byte) (int, error) {
-	r.readLines()
+	if r.reader == nil {
+		r.readLines()
+	}
 	return r.reader.Read(p)
 }
 
 func (r *HostMetricsReader) Close() error {
+	if r.reader != nil {
+		r.reader.Close()
+	}
 	return r.Source.Close()
 }
 
@@ -88,17 +93,26 @@ func (r *HostMetricsReader) readLines() {
 }
 
 func (r *HostMetricsReader) streamLines() {
-	defer r.reader.Close()
-	defer r.writer.Close()
 	scanner := r.getScanner()
 	printer := r.getPrinter()
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = r.modifyLine(line)
-		printer.WriteString(line)
-		printer.WriteRune('\n')
+		if _, err := printer.WriteString(line); err != nil {
+			r.writer.CloseWithError(err)
+			return
+		}
+		if _, err := printer.WriteRune('\n'); err != nil {
+			r.writer.CloseWithError(err)
+			return
+		}
 	}
-	printer.Flush()
+	if err := scanner.Err(); err != nil {
+		r.writer.CloseWithError(err)
+		return
+	}
+	err := printer.Flush()
+	r.writer.CloseWithError(err)
 }
 
 func (r *HostMetricsReader) modifyLine(line string) string {
