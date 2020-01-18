@@ -25,6 +25,8 @@ import (
 	"strings"
 )
 
+const hostnameLabel = "hostname="
+
 type HostMetricsReader struct {
 	Source io.ReadCloser
 
@@ -74,7 +76,7 @@ func (r *HostMetricsReader) getHostnameLabel() string {
 		var b strings.Builder
 		hostname, err := os.Hostname()
 		b.Grow(11 + len(hostname))
-		b.WriteString("hostname=")
+		b.WriteString(hostnameLabel)
 		b.WriteRune('"')
 		if err == nil {
 			b.WriteString(hostname)
@@ -120,6 +122,9 @@ func (r *HostMetricsReader) modifyLine(line string) string {
 		return line
 	}
 	if line[0] == '#' {
+		return line
+	}
+	if strings.Contains(line, hostnameLabel) {
 		return line
 	}
 
