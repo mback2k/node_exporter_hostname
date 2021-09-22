@@ -1,10 +1,10 @@
-FROM golang:stretch as build
+FROM golang:latest as build
 
 ADD . /go/node_exporter_hostname
 WORKDIR /go/node_exporter_hostname
 
 RUN go get
-RUN go build -ldflags="-s -w"
+RUN go build -trimpath -ldflags="-s -w"
 RUN chmod +x node_exporter_hostname
 
 FROM prom/node-exporter:latest
