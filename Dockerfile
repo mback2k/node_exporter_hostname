@@ -1,5 +1,6 @@
 FROM quay.io/prometheus/golang-builder:latest as build
 
+ENV CGO_ENABLED 0
 ADD . /app/node_exporter_hostname
 WORKDIR /app/node_exporter_hostname
 
